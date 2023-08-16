@@ -1,4 +1,11 @@
 terraform {
+  cloud {
+    organization = "Tok237"
+    workspaces {
+      name = "learn-tf-aws"
+    }
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
