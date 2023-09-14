@@ -19,7 +19,7 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.1.2"
 
-  name                 = "first"
+  name                 = "first-vpc"
   cidr                 = "10.10.0.0/16"
   azs                  = data.aws_availability_zones.available.names
   public_subnets       = ["10.10.3.0/24", "10.10.4.0/24", "10.10.5.0/24"]
@@ -27,7 +27,7 @@ module "vpc" {
   enable_dns_support   = true
 }
 
-resource "aws_db_subnet_group" "first" {
+resource "aws_db_subnet_group" "first-subnet" {
   name       = "first"
   subnet_ids = module.vpc.public_subnets
 
@@ -36,7 +36,7 @@ resource "aws_db_subnet_group" "first" {
   }
 }
 
-resource "aws_security_group" "first" {
+resource "aws_security_group" "first-sg" {
   name   = "first-sg"
   vpc_id = module.vpc.vpc_id
 
@@ -56,21 +56,21 @@ resource "aws_security_group" "first" {
 }
 
 ## RDS Instance
-resource "aws_db_instance" "firsTerraDB" {
-  identifier             = "first-terra-db"
-  allocated_storage      = 10
-  db_name                = var.db_name
-  engine                 = "mysql"
-  engine_version         = "8.0"
-  instance_class         = "db.t2.micro"
-  username               = var.db_username
-  password               = var.db_password
-  parameter_group_name   = "default.mysql8.0"
-  db_subnet_group_name   = aws_db_subnet_group.first.name
-  vpc_security_group_ids = [aws_security_group.first.id]
-  publicly_accessible    = true
-  skip_final_snapshot    = true
-}
+# resource "aws_db_instance" "firsTerraDB" {
+#   identifier             = "first-terra-db"
+#   allocated_storage      = 10
+#   db_name                = var.db_name
+#   engine                 = "mysql"
+#   engine_version         = "8.0"
+#   instance_class         = "db.t2.micro"
+#   username               = var.db_username
+#   password               = var.db_password
+#   parameter_group_name   = "default.mysql8.0"
+#   db_subnet_group_name   = aws_db_subnet_group.first-subnet.name
+#   vpc_security_group_ids = [aws_security_group.first-sg.id]
+#   publicly_accessible    = true
+#   skip_final_snapshot    = true
+# }
 
 ## Lambda function
 
@@ -92,21 +92,31 @@ resource "aws_iam_role" "iam_for_lambda" {
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
 }
 
+resource "aws_lambda_layer_version" "function_packages" {
+  filename   = "packages.zip"
+  layer_name = "function_packages"
+  compatible_runtimes = ["python3.9"]
+}
+
 data "archive_file" "lambda_function" {
   type        = "zip"
   source_file = "lambda_function.py"
-  output_path = "deployment.zip"
+  output_path = "deployment_payload.zip"
 }
 
-resource "aws_lambda_function" "first" {
-  filename      = "deployment.zip"
+resource "aws_lambda_function" "first_lambda" {
+  filename      = "deployment_payload.zip"
   function_name = "first_function"
   role          = aws_iam_role.iam_for_lambda.arn
   handler       = "lambda_function.lambda_handler"
+  layers        = [aws_lambda_layer_version.function_packages.arn]
 
   source_code_hash = data.archive_file.lambda_function.output_base64sha256
 
   runtime = "python3.9"
 
-  #security_group_ids = [aws_security_group.first.id]
+  # vpc_config {
+  #   subnet_ids = [aws_db_subnet_group.first-subnet.vpc_id]
+  #   security_group_ids = [aws_security_group.first-sg.id]
+  # }
 }
