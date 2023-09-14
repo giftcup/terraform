@@ -56,21 +56,21 @@ resource "aws_security_group" "first-sg" {
 }
 
 ## RDS Instance
-# resource "aws_db_instance" "firsTerraDB" {
-#   identifier             = "first-terra-db"
-#   allocated_storage      = 10
-#   db_name                = var.db_name
-#   engine                 = "mysql"
-#   engine_version         = "8.0"
-#   instance_class         = "db.t2.micro"
-#   username               = var.db_username
-#   password               = var.db_password
-#   parameter_group_name   = "default.mysql8.0"
-#   db_subnet_group_name   = aws_db_subnet_group.first-subnet.name
-#   vpc_security_group_ids = [aws_security_group.first-sg.id]
-#   publicly_accessible    = true
-#   skip_final_snapshot    = true
-# }
+resource "aws_db_instance" "firsTerraDB" {
+  identifier             = "first-terra-db"
+  allocated_storage      = 10
+  db_name                = var.db_name
+  engine                 = "mysql"
+  engine_version         = "8.0"
+  instance_class         = "db.t2.micro"
+  username               = var.db_username
+  password               = var.db_password
+  parameter_group_name   = "default.mysql8.0"
+  db_subnet_group_name   = aws_db_subnet_group.first-subnet.name
+  vpc_security_group_ids = [aws_security_group.first-sg.id]
+  publicly_accessible    = true
+  skip_final_snapshot    = true
+}
 
 ## Lambda function
 
@@ -92,9 +92,14 @@ resource "aws_iam_role" "iam_for_lambda" {
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
 }
 
+resource "aws_iam_role_policy_attachment" "AWSLambdaVPCAccessExecutionRole" {
+  role = aws_iam_role.iam_for_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 resource "aws_lambda_layer_version" "function_packages" {
-  filename   = "packages.zip"
-  layer_name = "function_packages"
+  filename            = "packages.zip"
+  layer_name          = "function_packages"
   compatible_runtimes = ["python3.9"]
 }
 
@@ -115,8 +120,25 @@ resource "aws_lambda_function" "first_lambda" {
 
   runtime = "python3.9"
 
-  # vpc_config {
-  #   subnet_ids = [aws_db_subnet_group.first-subnet.vpc_id]
-  #   security_group_ids = [aws_security_group.first-sg.id]
-  # }
+  vpc_config {
+    subnet_ids = module.vpc.public_subnets
+    security_group_ids = [aws_security_group.first-sg.id]
+  }
+}
+
+# Redis Cluster
+resource "aws_elasticache_subnet_group" "first-cluster" {
+  name = "first-cluster-subnet"
+  subnet_ids = module.vpc.public_subnets
+}
+
+resource "aws_elasticache_cluster" "first-cluster" {
+  cluster_id           = "first-cluster-id"
+  engine               = "redis"
+  node_type            = "cache.t4g.micro"
+  num_cache_nodes      = 1
+  parameter_group_name = "default.redis5.0"
+  engine_version       = "5.0.6"
+  port                 = 6379
+  subnet_group_name = aws_elasticache_subnet_group.first-cluster.name
 }
