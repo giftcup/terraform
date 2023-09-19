@@ -27,6 +27,42 @@ module "vpc" {
   enable_dns_support   = true
 }
 
+
+resource "aws_security_group" "second-sg" {
+  name   = "second-sg"
+  vpc_id = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["10.10.0.0/16"]
+  }
+
+  ingress {
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = ["10.10.0.0/16"]
+  }
+
+  egress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["10.10.0.0/16"]
+  }
+
+  egress {
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = ["10.10.0.0/16"]
+  }
+}
+
+# RDS Instance
+
 resource "aws_db_subnet_group" "second-subnet" {
   name       = "second"
   subnet_ids = module.vpc.public_subnets
@@ -36,40 +72,6 @@ resource "aws_db_subnet_group" "second-subnet" {
   }
 }
 
-resource "aws_security_group" "second-sg" {
-  name   = "second-sg"
-  vpc_id = module.vpc.vpc_id
-
-  ingress {
-    from_port = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port = 6379
-    to_port = 6379
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port = 6379
-    to_port = 6379
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# RDS Instance
 resource "aws_db_instance" "firsTerraDB" {
   identifier             = "second-terra-db"
   allocated_storage      = 10
@@ -88,7 +90,7 @@ resource "aws_db_instance" "firsTerraDB" {
 
 
 # Redis Cluster
-resource "aws_elasticache_subnet_group" "second-cluster-sg" {
+resource "aws_elasticache_subnet_group" "second-cluster-subnet" {
   name       = "second-cluster-subnet"
   subnet_ids = module.vpc.public_subnets
 }
@@ -101,7 +103,8 @@ resource "aws_elasticache_cluster" "second-cluster" {
   parameter_group_name = "default.redis5.0"
   engine_version       = "5.0.6"
   port                 = 6379
-  subnet_group_name    = aws_elasticache_subnet_group.second-cluster-sg.name
+  security_group_ids   = [aws_security_group.second-sg.id]
+  subnet_group_name    = aws_elasticache_subnet_group.second-cluster-subnet.name
 }
 
 # Lambda function
@@ -147,6 +150,7 @@ resource "aws_lambda_function" "first_lambda" {
   role          = aws_iam_role.iam_for_lambda.arn
   handler       = "lambda_function.lambda_handler"
   layers        = [aws_lambda_layer_version.function_packages.arn]
+  timeout       = 150
 
   source_code_hash = data.archive_file.lambda_function.output_base64sha256
 
