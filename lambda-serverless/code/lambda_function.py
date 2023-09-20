@@ -1,9 +1,9 @@
 import json
 import os
 import mysql.connector
-from redis.cluster import RedisCluster
+import redis
 
-cache = RedisCluster(host=os.getenv('REDIS_URL'), port=os.getenv('REDIS_PORT'))
+cache = redis.Redis(host=os.getenv('REDIS_URL'), port=os.getenv('REDIS_PORT'))
 
 def lambda_handler(event, context):
     mydb = mysql.connector.connect (

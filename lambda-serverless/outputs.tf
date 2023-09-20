@@ -22,30 +22,12 @@ output "mysql_port" {
   sensitive   = false
 }
 
-output "mysql_user" {
-  description = "mysql user"
-  value       = aws_db_instance.firsTerraDB.username
-  sensitive   = true
-}
-
-output "mysql_pass" {
-  description = "mysql password"
-  sensitive   = true
-  value       = aws_db_instance.firsTerraDB.password
-}
-
-output "mysql_db" {
-  description = "database name"
-  value       = aws_db_instance.firsTerraDB.db_name
-  sensitive   = true
-}
-
 output "elasticache-sg" {
   description = "Elasticache security group name"
-  value = aws_elasticache_cluster.second-cluster.security_group_ids
+  value       = aws_elasticache_cluster.second-cluster.security_group_ids
 }
 
 output "database-sg" {
   description = "database sg"
-  value = aws_db_instance.firsTerraDB.vpc_security_group_ids
+  value       = aws_db_instance.firsTerraDB.vpc_security_group_ids
 }
